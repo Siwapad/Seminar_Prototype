@@ -1,71 +1,156 @@
 let currentCamera = 1;
 let totalCameras = 2;
 let currentLab = "";
+let useBehaviorMode = true; // ✅ เปิดโหมดวิเคราะห์พฤติกรรมเป็นค่าเริ่มต้น
+let liveFeedInterval = null;
 
 // 🎥 เริ่มโหลดภาพ + ดึงข้อมูลจาก Flask ทุก 2 วินาที
 function startLiveFeed() {
+  // หยุด interval เก่าก่อน (ป้องกันซ้ำซ้อน)
+  if (liveFeedInterval) {
+    clearInterval(liveFeedInterval);
+  }
+
   const feed = document.getElementById("liveFeed");
   const detectionCount = document.getElementById("detectionCount");
   if (!feed) return;
 
-  setInterval(async () => {
-    const frameUrl = `http://127.0.0.1:5000/api/frame/${currentLab}/${currentCamera}?t=${Date.now()}`;
-    const dataUrl = `http://127.0.0.1:5000/api/data/${currentLab}/${currentCamera}`;
+  // เรียกทันทีครั้งแรก
+  updateLiveFeed();
 
-    // โหลดภาพ
-    feed.src = frameUrl;
-
-    try {
-      const res = await fetch(dataUrl);
-      const data = await res.json();
-
-      if (!data || data.error) {
-        detectionCount.textContent = "❌ ไม่พบข้อมูลตรวจจับ";
-        return;
-      }
-
-      // อัปเดตข้อมูลภาพ
-      detectionCount.textContent = `👥 ตรวจพบ ${data.num_people} คน (เชื่อมั่น ${data.avg_confidence}%)`;
-
-      // อัปเดตสถิติฝั่งขวา
-      const peopleEl = document.querySelector(".text-blue-600");
-      const pcUsedEl = document.querySelector(".text-green-600");
-      const pcFreeEl = document.querySelector(".text-orange-600");
-      const usageEl = document.querySelector(".text-purple-600");
-
-      const total = 30;
-      const used = Math.min(total, data.num_people);
-      const free = total - used;
-      const usage = Math.round((used / total) * 100);
-
-      if (peopleEl) peopleEl.textContent = used;
-      if (pcUsedEl) pcUsedEl.textContent = used;
-      if (pcFreeEl) pcFreeEl.textContent = free;
-      if (usageEl) usageEl.textContent = `${usage}%`;
-    } catch (e) {
-      detectionCount.textContent = "⚠️ ข้อมูลไม่พร้อม";
-    }
-  }, 2000);
+  // แล้วเรียกทุก 2 วินาที
+  liveFeedInterval = setInterval(updateLiveFeed, 2000);
 }
 
-// 🎯 ฟังก์ชันอัปเดตสถิติฝั่งขวาแบบเรียลไทม์
-function updateRealtimeStats(data) {
-  const peopleEl = document.querySelector(".text-blue-600"); // 👥 นักเรียนในห้อง
-  const pcUsedEl = document.querySelector(".text-green-600"); // 💻 คอมพิวเตอร์ที่ใช้งาน
-  const pcFreeEl = document.querySelector(".text-orange-600"); // ⚡ คอมพิวเตอร์ว่าง
-  const usageEl = document.querySelector(".text-purple-600"); // 📊 อัตราการใช้งาน
+// 🔄 ฟังก์ชันอัปเดต feed และข้อมูล
+async function updateLiveFeed() {
+  const feed = document.getElementById("liveFeed");
+  const detectionCount = document.getElementById("detectionCount");
+  if (!feed || !currentLab) return;
 
-  const totalPCs = 30; // สมมุติห้องมี 30 เครื่อง
-  const people = data.num_people || 0;
-  const used = Math.min(totalPCs, people);
-  const free = totalPCs - used;
-  const usage = Math.round((used / totalPCs) * 100);
+  // เลือก API ตามโหมด
+  const frameUrl = useBehaviorMode
+    ? `http://127.0.0.1:5000/api/behavior-frame/${currentLab}/${currentCamera}?t=${Date.now()}`
+    : `http://127.0.0.1:5000/api/frame/${currentLab}/${currentCamera}?t=${Date.now()}`;
 
-  // ✅ อัปเดตค่าในหน้า
-  animateNumber(peopleEl, people);
-  animateNumber(pcUsedEl, used);
-  animateNumber(pcFreeEl, free);
-  if (usageEl) usageEl.textContent = `${usage}%`;
+  // โหลดภาพ
+  feed.src = frameUrl;
+
+  try {
+    // ดึงข้อมูลการตรวจจับ
+    const dataRes = await fetch(
+      `http://127.0.0.1:5000/api/data/${currentLab}/${currentCamera}`,
+    );
+    const data = await dataRes.json();
+
+    if (!data || data.error) {
+      detectionCount.textContent = "❌ ไม่พบข้อมูลตรวจจับ";
+      return;
+    }
+
+    // อัปเดตสถิติฝั่งขวา (จำนวนคน)
+    const peopleEl = document.querySelector(".text-blue-600");
+    const pcUsedEl = document.querySelector(
+      ".text-green-600:not(#attentionRate)",
+    );
+    const pcFreeEl = document.querySelector(".text-orange-600");
+    const usageEl = document.querySelector(".text-purple-600");
+
+    const total = 30;
+    const used = Math.min(total, data.num_people);
+    const free = total - used;
+    const usage = Math.round((used / total) * 100);
+
+    if (peopleEl) peopleEl.textContent = used;
+    if (pcUsedEl) pcUsedEl.textContent = used;
+    if (pcFreeEl) pcFreeEl.textContent = free;
+    if (usageEl) usageEl.textContent = `${usage}%`;
+
+    // ถ้าเปิดโหมดวิเคราะห์พฤติกรรม
+    if (useBehaviorMode) {
+      const behaviorRes = await fetch(
+        `http://127.0.0.1:5000/api/behavior/${currentLab}/${currentCamera}`,
+      );
+      const behaviorData = await behaviorRes.json();
+
+      if (behaviorData && !behaviorData.error) {
+        updateBehaviorStats(behaviorData);
+        detectionCount.textContent = `🧠 ตรวจพบ ${behaviorData.total_people} คน | ตั้งใจเรียน ${behaviorData.attention_rate}%`;
+      }
+    } else {
+      detectionCount.textContent = `👥 ตรวจพบ ${data.num_people} คน (เชื่อมั่น ${data.avg_confidence}%)`;
+    }
+  } catch (e) {
+    console.error("Error fetching data:", e);
+    detectionCount.textContent = "⚠️ ข้อมูลไม่พร้อม";
+  }
+}
+
+// 🧠 อัปเดตสถิติพฤติกรรม
+function updateBehaviorStats(data) {
+  const attentiveEl = document.getElementById("behaviorAttentive");
+  const sleepingEl = document.getElementById("behaviorSleeping");
+  const lookingDownEl = document.getElementById("behaviorLookingDown");
+  const lookingAwayEl = document.getElementById("behaviorLookingAway");
+  const attentionRateEl = document.getElementById("attentionRate");
+  const attentionBarEl = document.getElementById("attentionBar");
+
+  if (data.summary) {
+    if (attentiveEl)
+      attentiveEl.textContent = `${data.summary.attentive || 0} คน`;
+    if (sleepingEl) sleepingEl.textContent = `${data.summary.sleeping || 0} คน`;
+    if (lookingDownEl)
+      lookingDownEl.textContent = `${data.summary.looking_down || 0} คน`;
+    if (lookingAwayEl)
+      lookingAwayEl.textContent = `${data.summary.looking_away || 0} คน`;
+  }
+
+  if (attentionRateEl) {
+    attentionRateEl.textContent = `${data.attention_rate || 0}%`;
+
+    // เปลี่ยนสีตามระดับความตั้งใจ
+    if (data.attention_rate >= 70) {
+      attentionRateEl.className = "text-xl font-bold text-green-600";
+    } else if (data.attention_rate >= 40) {
+      attentionRateEl.className = "text-xl font-bold text-yellow-600";
+    } else {
+      attentionRateEl.className = "text-xl font-bold text-red-600";
+    }
+  }
+
+  if (attentionBarEl) {
+    attentionBarEl.style.width = `${data.attention_rate || 0}%`;
+
+    // เปลี่ยนสี bar ตามระดับ
+    if (data.attention_rate >= 70) {
+      attentionBarEl.className =
+        "bg-green-500 h-3 rounded-full transition-all duration-500";
+    } else if (data.attention_rate >= 40) {
+      attentionBarEl.className =
+        "bg-yellow-500 h-3 rounded-full transition-all duration-500";
+    } else {
+      attentionBarEl.className =
+        "bg-red-500 h-3 rounded-full transition-all duration-500";
+    }
+  }
+}
+
+// 🎯 Toggle โหมดวิเคราะห์พฤติกรรม
+function toggleBehaviorMode() {
+  useBehaviorMode = !useBehaviorMode;
+  const btn = document.getElementById("behaviorModeBtn");
+  if (btn) {
+    if (useBehaviorMode) {
+      btn.textContent = "🧠 โหมด: วิเคราะห์พฤติกรรม";
+      btn.className =
+        "bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors";
+    } else {
+      btn.textContent = "👥 โหมด: นับจำนวนคน";
+      btn.className =
+        "bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm transition-colors";
+    }
+  }
+  updateLiveFeed(); // อัปเดตทันที
 }
 
 // ✨ แอนิเมชันเปลี่ยนค่าตัวเลขให้ดู smooth
@@ -124,6 +209,8 @@ function enterLab(labId, labName) {
 
   updateCameraFeed();
   startLiveFeed();
+  initCharts(); // 📊 สร้างกราฟ
+  startChartUpdates(); // 📊 เริ่มอัปเดตกราฟ
 }
 
 // 🔙 กลับไปหน้าเมนู
@@ -131,6 +218,13 @@ function backToMenu() {
   document.getElementById("labInterface").classList.add("hidden");
   document.getElementById("labMenu").classList.remove("hidden");
   currentLab = "";
+
+  // หยุด intervals
+  if (liveFeedInterval) {
+    clearInterval(liveFeedInterval);
+    liveFeedInterval = null;
+  }
+  stopChartUpdates();
 }
 
 // 🌙 โหมดมืด / สว่าง
@@ -194,7 +288,7 @@ function downloadReport(format) {
         return;
       } else {
         alert(
-          "❗ ต้องติดตั้ง jsPDF และ html2canvas ก่อนถึงจะบันทึกเป็น PDF ได้"
+          "❗ ต้องติดตั้ง jsPDF และ html2canvas ก่อนถึงจะบันทึกเป็น PDF ได้",
         );
         return;
       }
@@ -236,6 +330,234 @@ function exportReport() {
 function closeReportModal() {
   const modal = document.getElementById("reportModal");
   if (modal) modal.classList.add("hidden");
+}
+
+// ===== 📊 CHART FUNCTIONS =====
+let attentionChart = null;
+let behaviorPieChart = null;
+let chartUpdateInterval = null;
+
+// 📊 สร้างกราฟเริ่มต้น
+function initCharts() {
+  // ทำลายกราฟเก่าถ้ามี
+  if (attentionChart) {
+    attentionChart.destroy();
+    attentionChart = null;
+  }
+  if (behaviorPieChart) {
+    behaviorPieChart.destroy();
+    behaviorPieChart = null;
+  }
+
+  // กราฟเส้น - ความตั้งใจเรียน
+  const lineCtx = document.getElementById("attentionChart");
+  if (lineCtx) {
+    attentionChart = new Chart(lineCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "ความตั้งใจเรียน (%)",
+            data: [],
+            borderColor: "rgb(34, 197, 94)",
+            backgroundColor: "rgba(34, 197, 94, 0.1)",
+            fill: true,
+            tension: 0.4,
+          },
+          {
+            label: "จำนวนนักศึกษา",
+            data: [],
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
+            fill: false,
+            tension: 0.4,
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        scales: {
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+            min: 0,
+            max: 100,
+            title: {
+              display: true,
+              text: "ความตั้งใจ (%)",
+            },
+          },
+          y1: {
+            type: "linear",
+            display: true,
+            position: "right",
+            min: 0,
+            max: 50,
+            title: {
+              display: true,
+              text: "จำนวนคน",
+            },
+            grid: {
+              drawOnChartArea: false,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              usePointStyle: true,
+              boxWidth: 8,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  // กราฟวงกลม - สัดส่วนพฤติกรรม
+  const pieCtx = document.getElementById("behaviorPieChart");
+  if (pieCtx) {
+    behaviorPieChart = new Chart(pieCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["ตั้งใจเรียน", "หลับ", "ก้มหน้า", "มองออก"],
+        datasets: [
+          {
+            data: [0, 0, 0, 0],
+            backgroundColor: [
+              "rgba(34, 197, 94, 0.8)",
+              "rgba(239, 68, 68, 0.8)",
+              "rgba(249, 115, 22, 0.8)",
+              "rgba(234, 179, 8, 0.8)",
+            ],
+            borderWidth: 2,
+            borderColor: "#fff",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              usePointStyle: true,
+              boxWidth: 8,
+              font: {
+                size: 11,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+}
+
+// 📊 อัปเดตข้อมูลกราฟ
+async function updateCharts() {
+  if (!currentLab) return;
+
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/api/stats/${currentLab}`);
+    const data = await res.json();
+
+    if (attentionChart && data.labels) {
+      attentionChart.data.labels = data.labels;
+      attentionChart.data.datasets[0].data = data.attention_rates;
+      attentionChart.data.datasets[1].data = data.people_counts;
+      attentionChart.update("none");
+    }
+
+    if (behaviorPieChart && data.latest_summary) {
+      const summary = data.latest_summary;
+      behaviorPieChart.data.datasets[0].data = [
+        summary.attentive || 0,
+        summary.sleeping || 0,
+        summary.looking_down || 0,
+        summary.looking_away || 0,
+      ];
+      behaviorPieChart.update("none");
+    }
+
+    // อัปเดต Activity Log
+    await updateActivityLog();
+  } catch (e) {
+    console.error("Error updating charts:", e);
+  }
+}
+
+// 📝 อัปเดต Activity Log
+async function updateActivityLog() {
+  if (!currentLab) return;
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:5000/api/activities/${currentLab}`,
+    );
+    const data = await res.json();
+
+    const activityList = document.getElementById("activityList");
+    if (!activityList || !data.activities) return;
+
+    if (data.activities.length === 0) {
+      activityList.innerHTML = `
+        <div class="flex items-center space-x-3 text-sm">
+          <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+          <span class="text-gray-600">--:--</span>
+          <span>ยังไม่มีกิจกรรม</span>
+        </div>
+      `;
+      return;
+    }
+
+    activityList.innerHTML = data.activities
+      .slice(0, 10)
+      .map((activity) => {
+        let dotColor = "bg-blue-500";
+        if (activity.type === "warning") dotColor = "bg-yellow-500";
+        if (activity.type === "alert") dotColor = "bg-red-500";
+        if (activity.type === "success") dotColor = "bg-green-500";
+
+        return `
+        <div class="flex items-center space-x-3 text-sm">
+          <div class="w-2 h-2 ${dotColor} rounded-full"></div>
+          <span class="text-gray-600">${activity.time}</span>
+          <span>${activity.message}</span>
+        </div>
+      `;
+      })
+      .join("");
+  } catch (e) {
+    console.error("Error updating activity log:", e);
+  }
+}
+
+// 📊 เริ่มอัปเดตกราฟทุก 2 วินาที
+function startChartUpdates() {
+  if (chartUpdateInterval) {
+    clearInterval(chartUpdateInterval);
+  }
+  updateCharts(); // เรียกทันที
+  chartUpdateInterval = setInterval(updateCharts, 2000);
+}
+
+// 📊 หยุดอัปเดตกราฟ
+function stopChartUpdates() {
+  if (chartUpdateInterval) {
+    clearInterval(chartUpdateInterval);
+    chartUpdateInterval = null;
+  }
 }
 
 document.addEventListener("DOMContentLoaded", function () {

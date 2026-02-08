@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -30,11 +31,11 @@
           </div>
           <div class="flex items-center space-x-4">
             <button
-              onclick="toggleDarkMode()"
-              class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm transition-colors flex items-center space-x-1"
+              onclick="toggleBehaviorMode()"
+              id="behaviorModeBtn"
+              class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
             >
-              <span id="themeIcon">🌙</span>
-              <span id="themeText">โหมดมืด</span>
+              โหมด: วิเคราะห์พฤติกรรม
             </button>
           </div>
         </div>
@@ -68,13 +69,12 @@
                 ></div>
               </div>
               <div class="space-y-2 text-sm text-gray-600">
-                <p>💻 คอมพิวเตอร์: 25/30 เครื่อง</p>
-                <p>👥 นักเรียน: 18 คน</p>
+                <p>กล้อง: 2 ตัว</p>
+                <p>AI: วิเคราะห์พฤติกรรม</p>
                 <p>
-                  📊 สถานะ:
-                  <span class="text-green-600 font-medium">ใช้งานปกติ</span>
+                  สถานะ:
+                  <span class="text-green-600 font-medium">พร้อมใช้งาน</span>
                 </p>
-                <p>🕐 อัพเดทล่าสุด: 2 นาทีที่แล้ว</p>
               </div>
             </div>
           </div>
@@ -94,39 +94,12 @@
                 ></div>
               </div>
               <div class="space-y-2 text-sm text-gray-600">
-                <p>💻 คอมพิวเตอร์: 22/25 เครื่อง</p>
-                <p>👥 นักเรียน: 15 คน</p>
+                <p>กล้อง: 2 ตัว</p>
+                <p>AI: วิเคราะห์พฤติกรรม</p>
                 <p>
-                  📊 สถานะ:
-                  <span class="text-yellow-600 font-medium">ใช้งานปานกลาง</span>
+                  สถานะ:
+                  <span class="text-green-600 font-medium">พร้อมใช้งาน</span>
                 </p>
-                <p>🕐 อัพเดทล่าสุด: 1 นาทีที่แล้ว</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Lab 9228 -->
-          <div
-            class="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-            onclick="enterLab('9228', 'ห้องแล็บ 9228')"
-          >
-            <div class="p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-800">
-                  ห้องแล็บ 9228
-                </h3>
-                <div
-                  class="w-3 h-3 bg-red-500 rounded-full status-indicator"
-                ></div>
-              </div>
-              <div class="space-y-2 text-sm text-gray-600">
-                <p>💻 คอมพิวเตอร์: 28/30 เครื่อง</p>
-                <p>👥 นักเรียน: 30 คน</p>
-                <p>
-                  📊 สถานะ:
-                  <span class="text-red-600 font-medium">ใช้งานเต็มที่</span>
-                </p>
-                <p>🕐 อัพเดทล่าสุด: ตอนนี้</p>
               </div>
             </div>
           </div>
@@ -161,14 +134,12 @@
                 onclick="refreshData()"
                 class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
               >
-                <span>🔄</span>
                 <span>รีเฟรช</span>
               </button>
               <button
                 onclick="exportReport()"
                 class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
               >
-                <span>📊</span>
                 <span>ส่งออกรายงาน</span>
               </button>
             </div>
@@ -228,7 +199,7 @@
                 <div
                   class="absolute top-4 left-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-lg text-sm"
                 >
-                  🎥 ห้องแล็บ 9226 - กล้อง <span id="camLabel">1</span>/2
+                  ห้องแล็บ 9226 - กล้อง <span id="camLabel">1</span>/2
                 </div>
                 <div
                   class="absolute top-4 right-4 bg-blue-600 bg-opacity-90 text-white px-3 py-1 rounded text-sm"
@@ -239,31 +210,39 @@
               </div>
             </div>
 
+            <!-- Attention Rate Chart -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">
+                  กราฟความตั้งใจเรียน (Real-time)
+                </h3>
+                <span class="text-xs text-gray-500">อัปเดตทุก 2 วินาที</span>
+              </div>
+              <div class="h-48">
+                <canvas id="attentionChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Behavior Pie Chart -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                สัดส่วนพฤติกรรม
+              </h3>
+              <div class="h-48">
+                <canvas id="behaviorPieChart"></canvas>
+              </div>
+            </div>
+
             <!-- Activity Timeline -->
             <div class="bg-white rounded-xl shadow-lg p-6">
               <h3 class="text-lg font-semibold text-gray-800 mb-4">
                 กิจกรรมล่าสุด
               </h3>
-              <div class="space-y-3 max-h-40 overflow-y-auto">
+              <div id="activityList" class="space-y-3 max-h-40 overflow-y-auto">
                 <div class="flex items-center space-x-3 text-sm">
-                  <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span class="text-gray-600">14:32</span>
-                  <span>นักเรียนเข้าใช้คอมพิวเตอร์เครื่องที่ 15</span>
-                </div>
-                <div class="flex items-center space-x-3 text-sm">
-                  <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span class="text-gray-600">14:28</span>
-                  <span>ตรวจพบการใช้งานโปรแกรม Code Editor</span>
-                </div>
-                <div class="flex items-center space-x-3 text-sm">
-                  <div class="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                  <span class="text-gray-600">14:25</span>
-                  <span>นักเรียนออกจากเครื่องคอมพิวเตอร์เครื่องที่ 8</span>
-                </div>
-                <div class="flex items-center space-x-3 text-sm">
-                  <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span class="text-gray-600">14:20</span>
-                  <span>เริ่มคาบเรียน - ตรวจพบนักเรียน 18 คน</span>
+                  <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+                  <span class="text-gray-600">--:--</span>
+                  <span>รอข้อมูล...</span>
                 </div>
               </div>
             </div>
@@ -271,94 +250,62 @@
 
           <!-- Statistics Panel -->
           <div class="space-y-4">
-            <!-- Real-time Stats -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                สถิติปัจจุบัน
-              </h3>
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-gray-600">👥 นักเรียนในห้อง</span>
-                  <span class="text-2xl font-bold text-blue-600">18</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-gray-600">💻 คอมพิวเตอร์ที่ใช้งาน</span>
-                  <span class="text-2xl font-bold text-green-600">25</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-gray-600">⚡ คอมพิวเตอร์ว่าง</span>
-                  <span class="text-2xl font-bold text-orange-600">5</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-gray-600">📊 อัตราการใช้งาน</span>
-                  <span class="text-2xl font-bold text-purple-600">83%</span>
-                </div>
-              </div>
-            </div>
-
             <!-- Activity Analysis -->
             <div class="bg-white rounded-xl shadow-lg p-6">
               <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                การวิเคราะห์กิจกรรม
+                การวิเคราะห์พฤติกรรม (AI)
               </h3>
               <div class="space-y-3">
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">💻 เขียนโปรแกรม</span>
-                  <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded"
-                    >12 คน</span
+                  <span class="text-gray-600">ตั้งใจเรียน</span>
+                  <span
+                    id="behaviorAttentive"
+                    class="bg-green-100 text-green-800 px-2 py-1 rounded"
+                    >0 คน</span
                   >
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">🌐 ท่องเว็บ</span>
-                  <span class="bg-green-100 text-green-800 px-2 py-1 rounded"
-                    >4 คน</span
+                  <span class="text-gray-600">หลับ</span>
+                  <span
+                    id="behaviorSleeping"
+                    class="bg-red-100 text-red-800 px-2 py-1 rounded"
+                    >0 คน</span
                   >
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">📝 เอกสาร</span>
-                  <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded"
-                    >2 คน</span
+                  <span class="text-gray-600">ก้มหน้า</span>
+                  <span
+                    id="behaviorLookingDown"
+                    class="bg-orange-100 text-orange-800 px-2 py-1 rounded"
+                    >0 คน</span
                   >
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">💤 ไม่ได้ใช้งาน</span>
-                  <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded"
-                    >5 เครื่อง</span
+                  <span class="text-gray-600">มองออก</span>
+                  <span
+                    id="behaviorLookingAway"
+                    class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded"
+                    >0 คน</span
                   >
                 </div>
-              </div>
-            </div>
-
-            <!-- Class Schedule -->
-            <div class="bg-white rounded-xl shadow-lg p-6">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                ตารางคาบเรียน
-              </h3>
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-600">เริ่มคาบ:</span>
-                  <span class="font-medium">14:00</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600">สิ้นสุดคาบ:</span>
-                  <span class="font-medium">16:00</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600">เวลาที่เหลือ:</span>
-                  <span class="font-medium text-orange-600" id="timeRemaining"
-                    >1:25:30</span
-                  >
-                </div>
-                <div class="mt-3">
-                  <div class="bg-gray-200 rounded-full h-2">
+                <div class="mt-4 pt-3 border-t">
+                  <div class="flex items-center justify-between">
+                    <span class="text-gray-700 font-medium"
+                      >อัตราความตั้งใจ</span
+                    >
+                    <span
+                      id="attentionRate"
+                      class="text-xl font-bold text-green-600"
+                      >0%</span
+                    >
+                  </div>
+                  <div class="mt-2 bg-gray-200 rounded-full h-3">
                     <div
-                      class="bg-blue-600 h-2 rounded-full"
-                      style="width: 35%"
+                      id="attentionBar"
+                      class="bg-green-500 h-3 rounded-full transition-all duration-500"
+                      style="width: 0%"
                     ></div>
                   </div>
-                  <p class="text-xs text-gray-500 mt-1">
-                    ความคืบหน้าคาบเรียน 35%
-                  </p>
                 </div>
               </div>
             </div>
@@ -406,62 +353,37 @@
               </div>
             </div>
 
-            <div class="bg-gray-50 p-4 rounded-lg">
-              <h4 class="font-semibold text-gray-800 mb-3">กิจกรรมหลัก</h4>
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span>💻 เขียนโปรแกรม</span>
-                  <span class="font-medium">67% (12 คน)</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>🌐 ท่องเว็บ</span>
-                  <span class="font-medium">22% (4 คน)</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>📝 จัดทำเอกสาร</span>
-                  <span class="font-medium">11% (2 คน)</span>
-                </div>
-              </div>
-            </div>
-
             <div class="space-y-3">
               <div class="grid grid-cols-2 gap-3">
                 <button
                   onclick="downloadReport('pdf')"
                   class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                 >
-                  <span>📄</span>
+                  <span></span>
                   <span>PDF</span>
                 </button>
                 <button
                   onclick="downloadReport('excel')"
                   class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                 >
-                  <span>📊</span>
+                  <span></span>
                   <span>Excel</span>
                 </button>
                 <button
                   onclick="downloadReport('csv')"
                   class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                 >
-                  <span>📋</span>
+                  <span></span>
                   <span>CSV</span>
                 </button>
                 <button
                   onclick="downloadReport('json')"
                   class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                 >
-                  <span>🔧</span>
+                  <span></span>
                   <span>JSON</span>
                 </button>
               </div>
-              <button
-                onclick="emailReport()"
-                class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
-              >
-                <span>📧</span>
-                <span>ส่งอีเมล</span>
-              </button>
             </div>
           </div>
         </div>
