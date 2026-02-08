@@ -169,7 +169,7 @@ Seminar_Prototype/
 
 663380026-5 ศิวภาส ภูศรีอ่อน **(ข้าวปั้น)** || [PunKunGG](https://github.com/PunKunGG)
 
-663380507-9 นิภาดา ยาญะนันท์ **(มิ้น)** || [MintNiphada](https://github.com/MintNiphada)
+663380507-9 นิภาดา ญายะนันท์ **(มิ้น)** || [MintNiphada](https://github.com/MintNiphada)
 
 ## License
 
