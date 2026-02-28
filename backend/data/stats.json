@@ -1,0 +1,321 @@
+{
+  "stats_history": {
+    "9226": [
+      {
+        "time": "21:58:30",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "21:58:30",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "21:58:35",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "21:58:36",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:00",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:00",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:06",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:06",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:12",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:12",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:19",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:19",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:24",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:24",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:30",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:30",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:36",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:36",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:42",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:42",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:48",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:48",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:54",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:00:54",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:01:00",
+        "attention_rate": 75.0,
+        "total_people": 8,
+        "summary": {
+          "attentive": 6,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 2,
+          "unknown": 0
+        }
+      },
+      {
+        "time": "22:01:00",
+        "attention_rate": 83.3,
+        "total_people": 6,
+        "summary": {
+          "attentive": 5,
+          "sleeping": 0,
+          "looking_down": 0,
+          "looking_away": 1,
+          "unknown": 0
+        }
+      }
+    ]
+  },
+  "activity_log": {
+    "9226": []
+  }
+}
