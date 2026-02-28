@@ -75,10 +75,24 @@
               </div>
               <div class="space-y-2 text-sm text-gray-600">
                 <p>กล้อง: 2 ตัว</p>
-                <p>AI: วิเคราะห์พฤติกรรม</p>
                 <p>
-                  สถานะ:
-                  <span class="text-green-600 font-medium">พร้อมใช้งาน</span>
+                  นักศึกษา:
+                  <span id="ov-9226-people" class="font-medium text-blue-600"
+                    >-</span
+                  >
+                  คน
+                </p>
+                <p>
+                  ความตั้งใจ:
+                  <span
+                    id="ov-9226-attention"
+                    class="font-medium text-green-600"
+                    >-%</span
+                  >
+                </p>
+                <p>
+                  อัปเดต:
+                  <span id="ov-9226-time" class="text-gray-400">--:--</span>
                 </p>
               </div>
             </div>
@@ -100,10 +114,24 @@
               </div>
               <div class="space-y-2 text-sm text-gray-600">
                 <p>กล้อง: 2 ตัว</p>
-                <p>AI: วิเคราะห์พฤติกรรม</p>
                 <p>
-                  สถานะ:
-                  <span class="text-green-600 font-medium">พร้อมใช้งาน</span>
+                  นักศึกษา:
+                  <span id="ov-9227-people" class="font-medium text-blue-600"
+                    >-</span
+                  >
+                  คน
+                </p>
+                <p>
+                  ความตั้งใจ:
+                  <span
+                    id="ov-9227-attention"
+                    class="font-medium text-green-600"
+                    >-%</span
+                  >
+                </p>
+                <p>
+                  อัปเดต:
+                  <span id="ov-9227-time" class="text-gray-400">--:--</span>
                 </p>
               </div>
             </div>
@@ -278,7 +306,7 @@
                   >
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">ก้มหน้า</span>
+                  <span class="text-gray-600">ก้มหน้า/โทรศัพท์</span>
                   <span
                     id="behaviorLookingDown"
                     class="bg-orange-100 text-orange-800 px-2 py-1 rounded"
@@ -341,20 +369,79 @@
           </div>
 
           <div class="space-y-6">
+            <!-- ข้อมูลทั่วไป + สถิติ -->
             <div class="grid grid-cols-2 gap-4">
               <div class="bg-blue-50 p-4 rounded-lg">
                 <h4 class="font-semibold text-blue-800">ข้อมูลทั่วไป</h4>
-                <p class="text-sm text-blue-600" id="reportLabName">
-                  ห้องแล็บ 9226
+                <p class="text-sm text-blue-600 font-medium" id="reportLabName">
+                  -
                 </p>
-                <p class="text-sm text-blue-600">วันที่: 15 มีนาคม 2567</p>
-                <p class="text-sm text-blue-600">เวลา: 14:00 - 16:00</p>
+                <p class="text-sm text-blue-600" id="reportDate">วันที่: -</p>
+                <p class="text-sm text-blue-600" id="reportTime">
+                  เวลาส่งออก: -
+                </p>
+                <p class="text-sm text-blue-600" id="reportRecords">
+                  บันทึก: 0 รายการ
+                </p>
               </div>
               <div class="bg-green-50 p-4 rounded-lg">
                 <h4 class="font-semibold text-green-800">สถิติการใช้งาน</h4>
-                <p class="text-sm text-green-600">นักเรียนเฉลี่ย: 18 คน</p>
-                <p class="text-sm text-green-600">อัตราการใช้งาน: 83%</p>
-                <p class="text-sm text-green-600">เครื่องที่ใช้งาน: 25/30</p>
+                <p class="text-sm text-green-600" id="reportAvgPeople">
+                  นักเรียนเฉลี่ย: - คน
+                </p>
+                <p class="text-sm text-green-600" id="reportAvgAttention">
+                  ความตั้งใจเฉลี่ย: -%
+                </p>
+                <p class="text-sm text-green-600" id="reportMaxPeople">
+                  นักเรียนสูงสุด: - คน
+                </p>
+              </div>
+            </div>
+
+            <!-- พฤติกรรมล่าสุด -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h4 class="font-semibold text-gray-800 mb-2">พฤติกรรมล่าสุด</h4>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="flex justify-between bg-green-50 px-3 py-1 rounded">
+                  <span class="text-gray-600">ตั้งใจเรียน</span>
+                  <span class="font-medium text-green-700" id="reportAttentive"
+                    >- คน</span
+                  >
+                </div>
+                <div class="flex justify-between bg-red-50 px-3 py-1 rounded">
+                  <span class="text-gray-600">หลับ</span>
+                  <span class="font-medium text-red-700" id="reportSleeping"
+                    >- คน</span
+                  >
+                </div>
+                <div
+                  class="flex justify-between bg-orange-50 px-3 py-1 rounded"
+                >
+                  <span class="text-gray-600">ก้มหน้า</span>
+                  <span
+                    class="font-medium text-orange-700"
+                    id="reportLookingDown"
+                    >- คน</span
+                  >
+                </div>
+                <div
+                  class="flex justify-between bg-yellow-50 px-3 py-1 rounded"
+                >
+                  <span class="text-gray-600">มองออก</span>
+                  <span
+                    class="font-medium text-yellow-700"
+                    id="reportLookingAway"
+                    >- คน</span
+                  >
+                </div>
+              </div>
+              <div class="mt-2 flex justify-between items-center border-t pt-2">
+                <span class="text-gray-600 text-sm">อัตราความตั้งใจล่าสุด</span>
+                <span
+                  class="font-bold text-green-600 text-lg"
+                  id="reportLatestAttention"
+                  >-%</span
+                >
               </div>
             </div>
 
@@ -395,5 +482,10 @@
       </div>
     </div>
     <script src="shared.js" defer></script>
+    <!-- Toast notification container -->
+    <div
+      id="toastContainer"
+      class="fixed top-4 right-4 z-50 space-y-2 max-w-sm pointer-events-none"
+    ></div>
   </body>
 </html>

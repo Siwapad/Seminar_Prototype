@@ -3,6 +3,9 @@ let totalCameras = 2;
 let currentLab = "";
 let useBehaviorMode = true; // ✅ เปิดโหมดวิเคราะห์พฤติกรรมเป็นค่าเริ่มต้น
 let liveFeedInterval = null;
+let lastAlertId = 0; // ID สุดท้ายที่ได้รับเพื่อหลีกเอา alert ซ้ำ
+let alertPollInterval = null; // setInterval handle สำหรับดึง alerts
+let latestExportData = null; // เก็บข้อมูลล่าสุดสำหรับ export
 
 // 🎥 เริ่มโหลดภาพ + ดึงข้อมูลจาก Flask ทุก 2 วินาที
 function startLiveFeed() {
@@ -211,6 +214,7 @@ function enterLab(labId, labName) {
   startLiveFeed();
   initCharts(); // 📊 สร้างกราฟ
   startChartUpdates(); // 📊 เริ่มอัปเดตกราฟ
+  startAlertPolling(); // 🔔 เริ่มยิงฟังการแจ้งเตือน
 }
 
 // 🔙 กลับไปหน้าเมนู
@@ -225,6 +229,7 @@ function backToMenu() {
     liveFeedInterval = null;
   }
   stopChartUpdates();
+  stopAlertPolling(); // 🔔 หยุดยิงฟังแจ้งเตือน
 }
 
 // 🌙 โหมดมืด / สว่าง
@@ -244,64 +249,235 @@ function toggleDarkMode() {
   }
 }
 
-// 📦 ฟังก์ชัน export ข้อมูลจาก dashboard
+// 📦 ดาวน์โหลดรายงานในรูปแบบที่เลือก
 function downloadReport(format) {
-  const data = {
-    lab: currentLab || "unknown",
-    camera: currentCamera || 1,
-    timestamp: new Date().toLocaleString(),
-    people: document.querySelector(".text-blue-600")?.textContent || 0,
-    pcUsed: document.querySelector(".text-green-600")?.textContent || 0,
-    pcFree: document.querySelector(".text-orange-600")?.textContent || 0,
-    usage: document.querySelector(".text-purple-600")?.textContent || "0%",
-  };
+  const labId = currentLab || "unknown";
+  const fileName = `ClassMood_Report_${labId}_${Date.now()}`;
 
-  let fileContent, mimeType, extension;
+  // สร้าง object สรุปข้อมูลจาก latestExportData หรือ fallback
+  let data;
+  if (latestExportData) {
+    const s = latestExportData.summary || {};
+    const latest = s.latest_summary || {};
+    data = {
+      lab_id: latestExportData.lab_id,
+      export_time: latestExportData.export_time,
+      avg_attention_rate: s.avg_attention_rate,
+      avg_people: s.avg_people,
+      max_people: s.max_people,
+      total_records: s.total_records,
+      latest_attention_rate: s.latest_attention_rate,
+      latest_total_people: s.latest_total_people,
+      behavior_attentive: latest.attentive || 0,
+      behavior_sleeping: latest.sleeping || 0,
+      behavior_looking_down: latest.looking_down || 0,
+      behavior_looking_away: latest.looking_away || 0,
+    };
+  } else {
+    data = {
+      lab_id: labId,
+      export_time: new Date().toLocaleString("th-TH"),
+      avg_attention_rate: 0,
+      avg_people: 0,
+      max_people: 0,
+      total_records: 0,
+      latest_attention_rate: 0,
+      latest_total_people: 0,
+      behavior_attentive: 0,
+      behavior_sleeping: 0,
+      behavior_looking_down: 0,
+      behavior_looking_away: 0,
+    };
+  }
 
   switch (format) {
     case "json":
-      fileContent = JSON.stringify(data, null, 2);
-      mimeType = "application/json";
-      extension = "json";
+      downloadBlob(
+        JSON.stringify(latestExportData || data, null, 2),
+        "application/json",
+        `${fileName}.json`,
+      );
       break;
+
     case "csv":
-      fileContent =
-        Object.keys(data).join(",") + "\n" + Object.values(data).join(",");
-      mimeType = "text/csv";
-      extension = "csv";
+      downloadBlob(
+        buildCSV(data),
+        "text/csv;charset=utf-8;",
+        `${fileName}.csv`,
+      );
       break;
+
     case "excel":
-      fileContent =
-        Object.keys(data).join("\t") + "\n" + Object.values(data).join("\t");
-      mimeType = "application/vnd.ms-excel";
-      extension = "xls";
+      downloadBlob(
+        buildExcel(data),
+        "application/vnd.ms-excel",
+        `${fileName}.xls`,
+      );
       break;
+
     case "pdf":
-      // ✅ ใช้ html2canvas + jsPDF ถ้ามีในโปรเจ็กต์
-      if (window.jspdf && window.html2canvas) {
-        html2canvas(document.body).then((canvas) => {
-          const imgData = canvas.toDataURL("image/png");
-          const pdf = new jsPDF();
-          pdf.addImage(imgData, "PNG", 10, 10, 180, 0);
-          pdf.save(`Report_${data.lab}_${Date.now()}.pdf`);
-        });
-        return;
-      } else {
-        alert(
-          "❗ ต้องติดตั้ง jsPDF และ html2canvas ก่อนถึงจะบันทึกเป็น PDF ได้",
-        );
-        return;
-      }
+      generatePDF(labId);
+      break;
+
     default:
       alert("ไม่รู้จักรูปแบบไฟล์ที่เลือก");
-      return;
+  }
+}
+
+// 🛠️ สร้างเนื้อหา CSV
+function buildCSV(data) {
+  const rows = [
+    ["รายงานการใช้งานห้องแล็บ - ClassMood AI"],
+    [],
+    ["ข้อมูลทั่วไป"],
+    ["ห้องแล็บ", data.lab_id],
+    ["เวลาส่งออก", data.export_time],
+    [],
+    ["สถิติรวม"],
+    ["จำนวนนักศึกษาเฉลี่ย (คน)", data.avg_people],
+    ["ความตั้งใจเรียนเฉลี่ย (%)", data.avg_attention_rate],
+    ["นักเรียนสูงสุด (คน)", data.max_people],
+    ["จำนวนบันทึกทั้งหมด", data.total_records],
+    [],
+    ["พฤติกรรมล่าสุด"],
+    ["ตั้งใจเรียน (คน)", data.behavior_attentive],
+    ["หลับ (คน)", data.behavior_sleeping],
+    ["ก้มหน้า (คน)", data.behavior_looking_down],
+    ["มองออก (คน)", data.behavior_looking_away],
+    ["อัตราความตั้งใจล่าสุด (%)", data.latest_attention_rate],
+  ];
+
+  // เพิ่มข้อมูลย้อนหลัง
+  if (
+    latestExportData &&
+    latestExportData.history &&
+    latestExportData.history.length > 0
+  ) {
+    rows.push([]);
+    rows.push(["ข้อมูลย้อนหลัง"]);
+    rows.push(["เวลา", "ความตั้งใจ (%)", "จำนวนคน"]);
+    for (const h of latestExportData.history) {
+      rows.push([h.time, h.attention_rate, h.total_people]);
+    }
   }
 
-  const blob = new Blob([fileContent], { type: mimeType });
+  return rows
+    .map((r) => r.map((cell) => `"${cell ?? ""}"`).join(","))
+    .join("\n");
+}
+
+// 🛠️ สร้างเนื้อหา Excel (TSV)
+function buildExcel(data) {
+  const rows = [
+    ["รายงานการใช้งานห้องแล็บ - ClassMood AI"],
+    [],
+    ["ห้องแล็บ", data.lab_id],
+    ["เวลาส่งออก", data.export_time],
+    [],
+    ["จำนวนนักศึกษาเฉลี่ย (คน)", data.avg_people],
+    ["ความตั้งใจเรียนเฉลี่ย (%)", data.avg_attention_rate],
+    ["นักเรียนสูงสุด (คน)", data.max_people],
+    ["จำนวนบันทึก", data.total_records],
+    [],
+    ["ตั้งใจเรียน (คน)", data.behavior_attentive],
+    ["หลับ (คน)", data.behavior_sleeping],
+    ["ก้มหน้า (คน)", data.behavior_looking_down],
+    ["มองออก (คน)", data.behavior_looking_away],
+    ["อัตราความตั้งใจล่าสุด (%)", data.latest_attention_rate],
+  ];
+
+  if (
+    latestExportData &&
+    latestExportData.history &&
+    latestExportData.history.length > 0
+  ) {
+    rows.push([]);
+    rows.push(["เวลา", "ความตั้งใจ (%)", "จำนวนคน"]);
+    for (const h of latestExportData.history) {
+      rows.push([h.time, h.attention_rate, h.total_people]);
+    }
+  }
+
+  return rows.map((r) => r.join("\t")).join("\n");
+}
+
+// 🛠️ สร้าง PDF จาก modal content
+function generatePDF(labId) {
+  const reportContent = document.querySelector("#reportModal .bg-white");
+  if (!reportContent) {
+    alert("❌ ไม่พบเนื้อหารายงาน");
+    return;
+  }
+  if (typeof html2canvas === "undefined" || !window.jspdf) {
+    alert("❌ ไม่สามารถสร้าง PDF ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+    return;
+  }
+
+  // ซ่อนส่วนปุ่มดาวน์โหลดขณะ capture เพื่อไม่ให้ติดใน PDF
+  const dlSection = reportContent.querySelector(".space-y-3");
+  if (dlSection) dlSection.style.visibility = "hidden";
+
+  html2canvas(reportContent, { scale: 2, useCORS: true }).then((canvas) => {
+    if (dlSection) dlSection.style.visibility = "";
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const imgWidth = pageWidth - margin * 2;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgData = canvas.toDataURL("image/png");
+
+    // แบ่งหน้าอัตโนมัติถ้าเนื้อหายาว
+    const pageContentHeight = pageHeight - margin * 2;
+    let yRemaining = imgHeight;
+    let sourceY = 0;
+
+    while (yRemaining > 0) {
+      const sliceH = Math.min(yRemaining, pageContentHeight);
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = (sliceH / imgWidth) * canvas.width;
+      const ctx = sliceCanvas.getContext("2d");
+      ctx.drawImage(
+        canvas,
+        0,
+        sourceY * (canvas.height / imgHeight),
+        canvas.width,
+        sliceCanvas.height,
+        0,
+        0,
+        sliceCanvas.width,
+        sliceCanvas.height,
+      );
+      pdf.addImage(
+        sliceCanvas.toDataURL("image/png"),
+        "PNG",
+        margin,
+        margin,
+        imgWidth,
+        sliceH,
+      );
+      yRemaining -= pageContentHeight;
+      sourceY += pageContentHeight;
+      if (yRemaining > 0) pdf.addPage();
+    }
+
+    pdf.save(`ClassMood_Report_${labId}_${Date.now()}.pdf`);
+  });
+}
+
+// 🛠️ สร้าง Blob และ trigger download
+function downloadBlob(content, mimeType, filename) {
+  const blob = new Blob(["\uFEFF" + content], { type: mimeType }); // BOM สำหรับ UTF-8 ภาษาไทย
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `Report_${data.lab}_${Date.now()}.${extension}`;
+  link.download = filename;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
 }
 
 // 🔄 รีเฟรชข้อมูล (ภาพ + ตัวเลข)
@@ -316,14 +492,67 @@ function refreshData() {
     new Date().toLocaleTimeString();
 }
 
-// 📊 แสดง modal ส่งออกรายงาน
-function exportReport() {
+// 📊 เปิด modal และดึงข้อมูลจริงจาก backend
+async function exportReport() {
+  if (!currentLab) {
+    alert("⚠️ กรุณาเลือกห้องก่อน");
+    return;
+  }
+
   const modal = document.getElementById("reportModal");
   if (modal) modal.classList.remove("hidden");
 
+  // ชื่อห้อง
   const labName =
     document.getElementById("currentLabName")?.textContent || "ไม่ทราบห้อง";
-  document.getElementById("reportLabName").textContent = labName;
+  const el = document.getElementById("reportLabName");
+  if (el) el.textContent = labName;
+
+  // วันที่/เวลา
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const timeStr = now.toLocaleTimeString("th-TH");
+  const dateEl = document.getElementById("reportDate");
+  const timeEl = document.getElementById("reportTime");
+  if (dateEl) dateEl.textContent = `วันที่: ${dateStr}`;
+  if (timeEl) timeEl.textContent = `เวลาส่งออก: ${timeStr}`;
+
+  // ดึงข้อมูลจาก backend
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/api/export/${currentLab}`);
+    const data = await res.json();
+    latestExportData = data;
+
+    const s = data.summary || {};
+    const latest = s.latest_summary || {};
+
+    const set = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+
+    set("reportRecords", `บันทึก: ${s.total_records ?? 0} รายการ`);
+    set("reportAvgPeople", `นักเรียนเฉลี่ย: ${s.avg_people ?? 0} คน`);
+    set(
+      "reportAvgAttention",
+      `ความตั้งใจเฉลี่ย: ${s.avg_attention_rate ?? 0}%`,
+    );
+    set("reportMaxPeople", `นักเรียนสูงสุด: ${s.max_people ?? 0} คน`);
+    set("reportAttentive", `${latest.attentive ?? 0} คน`);
+    set("reportSleeping", `${latest.sleeping ?? 0} คน`);
+    set("reportLookingDown", `${latest.looking_down ?? 0} คน`);
+    set("reportLookingAway", `${latest.looking_away ?? 0} คน`);
+    set("reportLatestAttention", `${s.latest_attention_rate ?? 0}%`);
+  } catch (e) {
+    console.error("Error fetching export data:", e);
+    latestExportData = null;
+    const recEl = document.getElementById("reportRecords");
+    if (recEl) recEl.textContent = "⚠️ ไม่สามารถโหลดข้อมูลได้";
+  }
 }
 
 // ❌ ปิด modal
@@ -429,7 +658,7 @@ function initCharts() {
     behaviorPieChart = new Chart(pieCtx, {
       type: "doughnut",
       data: {
-        labels: ["ตั้งใจเรียน", "หลับ", "ก้มหน้า", "มองออก"],
+        labels: ["ตั้งใจเรียน", "หลับ", "ก้มหน้า/โทรศัพท์", "มองออก"],
         datasets: [
           {
             data: [0, 0, 0, 0],
@@ -567,4 +796,105 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("themeIcon").textContent = "☀️";
     document.getElementById("themeText").textContent = "โหมดสว่าง";
   }
+  // 🏠 อัปเดต overview card หน้าเมนูทุก 8 วินาที
+  updateOverview();
+  setInterval(updateOverview, 8000);
 });
+
+// =============================================
+// 🔔  Alert polling (แจ้งเตือนแบบ real-time)
+// =============================================
+
+function startAlertPolling() {
+  if (alertPollInterval) return; // กันทำซ้ำ
+  alertPollInterval = setInterval(pollAlerts, 3000);
+  pollAlerts(); // เรียกทันที
+}
+
+function stopAlertPolling() {
+  if (alertPollInterval) {
+    clearInterval(alertPollInterval);
+    alertPollInterval = null;
+  }
+}
+
+async function pollAlerts() {
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:5000/api/alerts?since_id=${lastAlertId}`,
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const alert of data.alerts || []) {
+      const icons = { warning: "⚠️", alert: "🔴", info: "📱" };
+      showToast((icons[alert.type] || "🔔") + " " + alert.message, alert.type);
+    }
+    if (data.latest_id > lastAlertId) lastAlertId = data.latest_id;
+  } catch (_) {
+    /* server not running is fine */
+  }
+}
+
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+
+  const colors = {
+    warning: "bg-yellow-500",
+    alert: "bg-red-600",
+    info: "bg-blue-500",
+  };
+  const bg = colors[type] || "bg-gray-700";
+
+  const toast = document.createElement("div");
+  toast.className = `${bg} text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg
+    pointer-events-auto opacity-0 transition-opacity duration-300`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  // Fade in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      toast.classList.replace("opacity-0", "opacity-100");
+    });
+  });
+
+  // Auto-dismiss after 6s
+  setTimeout(() => {
+    toast.classList.replace("opacity-100", "opacity-0");
+    setTimeout(() => toast.remove(), 350);
+  }, 6000);
+}
+
+// =============================================
+// 🏠  Overview card updater
+// =============================================
+
+async function updateOverview() {
+  try {
+    const res = await fetch("http://127.0.0.1:5000/api/overview");
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const [labId, info] of Object.entries(data.labs || {})) {
+      const elPeople = document.getElementById(`ov-${labId}-people`);
+      const elAttention = document.getElementById(`ov-${labId}-attention`);
+      const elTime = document.getElementById(`ov-${labId}-time`);
+      if (!elPeople) continue;
+
+      elPeople.textContent = info.has_data ? info.total_people : "-";
+      elTime.textContent = info.last_updated;
+
+      const pct = info.attention_rate;
+      const color =
+        pct >= 70
+          ? "text-green-600"
+          : pct >= 40
+            ? "text-yellow-500"
+            : "text-red-500";
+      elAttention.className = `font-medium ${color}`;
+      elAttention.textContent = info.has_data ? `${pct}%` : "-%";
+    }
+  } catch (_) {
+    /* server not running is fine */
+  }
+}
