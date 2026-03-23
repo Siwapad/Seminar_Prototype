@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, send_from_directory, Response, request
 from flask_cors import CORS
 from ultralytics import YOLO
-import cv2, os, json, time
+import cv2, os, json, time, threading
 from datetime import datetime
 from collections import deque
 from behavior_analyzer import analyze_frame, get_behavior_label_th
@@ -58,6 +58,95 @@ def _set_cached(lab_id, cam_id, result):
     analysis_cache[(lab_id, cam_id)] = {"result": result, "ts": time.time()}
 
 
+# ─── Video Source Manager ─────────────────────────────────────────────────────
+# video_sources: { (lab_id, cam_id): source }  source = int (webcam) หรือ str (path วิดีโอ)
+video_sources: dict = {}
+# frame_buffers: { (lab_id, cam_id): {"frame": ndarray|None, "lock": Lock, "running": bool, "thread": Thread|None} }
+frame_buffers: dict = {}
+
+
+def _capture_loop(key):
+    """Background thread อ่าน frame ต่อเนื่องจาก VideoCapture"""
+    buf = frame_buffers[key]
+    src = video_sources.get(key)
+    cap = cv2.VideoCapture(src)
+    if not cap.isOpened():
+        print(f"⚠️  VideoCapture เปิดไม่ได้: {src}")
+        buf["running"] = False
+        return
+    is_file = isinstance(src, str)
+    print(f"🎥 เปิด {'วิดีโอ' if is_file else 'เว็บแคม'} {key} → {src}")
+    while buf["running"]:
+        ok, frame = cap.read()
+        if not ok:
+            if is_file:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # วนซ้ำตั้งแต่ต้น
+                ok, frame = cap.read()
+            else:
+                time.sleep(0.05)
+                continue
+        if ok and frame is not None:
+            with buf["lock"]:
+                buf["frame"] = frame
+        time.sleep(0.033)  # ~30 FPS max
+    cap.release()
+    print(f"🛑 ปิด {'วิดีโอ' if is_file else 'เว็บแคม'} {key}")
+
+
+def _start_capture(lab_id, cam_id, source):
+    """เริ่ม background thread สำหรับ (lab_id, cam_id)"""
+    key = (lab_id, cam_id)
+    _stop_capture(lab_id, cam_id)  # หยุด thread เก่าก่อน
+    video_sources[key] = source
+    buf = {"frame": None, "lock": threading.Lock(), "running": True, "thread": None}
+    frame_buffers[key] = buf
+    t = threading.Thread(target=_capture_loop, args=(key,), daemon=True)
+    buf["thread"] = t
+    t.start()
+
+
+def _stop_capture(lab_id, cam_id):
+    """หยุด background thread ของ (lab_id, cam_id)"""
+    key = (lab_id, cam_id)
+    if key in frame_buffers:
+        frame_buffers[key]["running"] = False
+        t = frame_buffers[key].get("thread")
+        if t and t.is_alive():
+            t.join(timeout=2.0)
+        del frame_buffers[key]
+    video_sources.pop(key, None)
+    analysis_cache.pop(key, None)
+
+
+def get_live_frame(lab_id, cam_id):
+    """คืน frame ล่าสุดจาก buffer หรือ None ถ้าไม่มี live source"""
+    buf = frame_buffers.get((lab_id, cam_id))
+    if buf:
+        with buf["lock"]:
+            f = buf["frame"]
+        if f is not None:
+            return f.copy()
+    return None
+
+
+def _read_frame(lab_id, cam_id):
+    """
+    อ่าน frame สำหรับ API: live buffer → static image
+    คืน (frame, error_tuple_or_None)
+    """
+    frame = get_live_frame(lab_id, cam_id)
+    if frame is not None:
+        return frame, None
+    # fallback สู่รูปนิ่ง
+    image_path = _get_image_path(lab_id, cam_id)
+    if not image_path:
+        return None, (jsonify({"error": "Image not found"}), 404)
+    frame = cv2.imread(image_path)
+    if frame is None:
+        return None, (jsonify({"error": "Unable to read image"}), 400)
+    return frame, None
+
+
 def push_alert(lab_id, alert_type, message):
     _alert_id_ctr[0] += 1
     alerts_list.append({
@@ -103,20 +192,12 @@ def load_stats():
 # ✅ API 1: ส่งเฟรมภาพพร้อมกรอบตรวจจับ
 @app.route("/api/frame/<lab_id>/<int:cam_id>")
 def get_lab_frame(lab_id, cam_id):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(base_dir, "test_images", f"{lab_id}_{cam_id}.png")
-
-    if not os.path.exists(image_path):
-        print(f"⚠️ ไม่พบรูปภาพที่: {image_path}")
-        return jsonify({"error": "Image not found"}), 404
-
-    frame = cv2.imread(image_path)
-    if frame is None:
-        return jsonify({"error": "Unable to read image"}), 400
+    frame, err = _read_frame(lab_id, cam_id)
+    if err:
+        return err
 
     results = model(frame)
     annotated_frame = results[0].plot()
-
     _, buffer = cv2.imencode(".jpg", annotated_frame)
     return Response(buffer.tobytes(), mimetype="image/jpeg")
 
@@ -124,15 +205,9 @@ def get_lab_frame(lab_id, cam_id):
 # ✅ API 2: ส่งข้อมูลการตรวจจับ (จำนวนคน, ความมั่นใจเฉลี่ย)
 @app.route("/api/data/<lab_id>/<int:cam_id>")
 def get_lab_data(lab_id, cam_id):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(base_dir, "test_images", f"{lab_id}_{cam_id}.png")
-
-    if not os.path.exists(image_path):
-        return jsonify({"error": "Image not found"}), 404
-
-    frame = cv2.imread(image_path)
-    if frame is None:
-        return jsonify({"error": "Unable to read image"}), 400
+    frame, err = _read_frame(lab_id, cam_id)
+    if err:
+        return err
 
     results = model(frame)
     boxes = results[0].boxes
@@ -165,12 +240,9 @@ def get_behavior_analysis(lab_id, cam_id):
     # ใช้ cache ก่อน — ป้องกัน double inference กับ behavior-frame
     analysis = _get_cached(lab_id, cam_id)
     if analysis is None:
-        image_path = _get_image_path(lab_id, cam_id)
-        if not image_path:
-            return jsonify({"error": "Image not found"}), 404
-        frame = cv2.imread(image_path)
-        if frame is None:
-            return jsonify({"error": "Unable to read image"}), 400
+        frame, err = _read_frame(lab_id, cam_id)
+        if err:
+            return err
         analysis = analyze_frame(frame)
         _set_cached(lab_id, cam_id, analysis)
         record_stats(lab_id, analysis)
@@ -195,12 +267,9 @@ def get_behavior_analysis(lab_id, cam_id):
 # ✅ API 4: ส่งภาพพร้อม behavior annotation
 @app.route("/api/behavior-frame/<lab_id>/<int:cam_id>")
 def get_behavior_frame(lab_id, cam_id):
-    image_path = _get_image_path(lab_id, cam_id)
-    if not image_path:
-        return jsonify({"error": "Image not found"}), 404
-    frame = cv2.imread(image_path)
-    if frame is None:
-        return jsonify({"error": "Unable to read image"}), 400
+    frame, err = _read_frame(lab_id, cam_id)
+    if err:
+        return err
 
     # ใช้ cache ก่อน — ป้องกัน double inference
     analysis = _get_cached(lab_id, cam_id)
@@ -352,6 +421,78 @@ def get_overview():
     return jsonify({"labs": result})
 
 
+# ─── MJPEG Streaming ─────────────────────────────────────────────────────────
+def _gen_mjpeg(lab_id, cam_id):
+    """Generator สำหรับ MJPEG stream (~25 FPS)"""
+    idle = 0
+    while True:
+        # หยุด stream ถ้า source ถูกลบไปแล้ว
+        if (lab_id, cam_id) not in frame_buffers:
+            break
+        frame = get_live_frame(lab_id, cam_id)
+        if frame is None:
+            time.sleep(0.05)
+            idle += 1
+            if idle > 100:  # รอ frame นานเกิน 5 วินาที — หยุด
+                print(f"⏱️ MJPEG stream หมดเวลารอ frame: {lab_id}/{cam_id}")
+                break
+            continue
+        idle = 0
+        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
+        time.sleep(1 / 25)
+
+
+@app.route("/api/stream/<lab_id>/<int:cam_id>")
+def stream_camera(lab_id, cam_id):
+    """MJPEG streaming endpoint — browser แสดงผลแบบ live"""
+    return Response(
+        _gen_mjpeg(lab_id, cam_id),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+# ─── Source Management APIs ───────────────────────────────────────────────────
+@app.route("/api/sources", methods=["GET"])
+def get_sources():
+    """แสดงรายการ video sources ที่กำหนดไว้"""
+    result = {
+        f"{lid}/{cid}": {"source": src}
+        for (lid, cid), src in video_sources.items()
+    }
+    return jsonify(result)
+
+
+@app.route("/api/sources/<lab_id>/<int:cam_id>", methods=["POST"])
+def set_source(lab_id, cam_id):
+    """ตั้ง video source: {\"source\": 0} สำหรับ webcam หรือ {\"source\": \"path/video.mp4\"}"""
+    body = request.get_json(force=True, silent=True) or {}
+    source = body.get("source")
+    if source is None:
+        return jsonify({"error": "Missing 'source' field"}), 400
+    # แปลง string ตัวเลขเป็น int (webcam index)
+    if isinstance(source, str) and source.isdigit():
+        source = int(source)
+
+    # ตรวจสอบก่อนว่าเปิดได้จริง — คืน error ทันทีถ้าไม่ได้
+    test_cap = cv2.VideoCapture(source)
+    if not test_cap.isOpened():
+        test_cap.release()
+        label = f"webcam {source}" if isinstance(source, int) else source
+        return jsonify({"error": f"ไม่สามารถเปิดได้: {label}"}), 400
+    test_cap.release()
+
+    _start_capture(lab_id, cam_id, source)
+    return jsonify({"ok": True, "lab_id": lab_id, "cam_id": cam_id, "source": source})
+
+
+@app.route("/api/sources/<lab_id>/<int:cam_id>", methods=["DELETE"])
+def delete_source(lab_id, cam_id):
+    """ลบ video source — กลับสู่โหมดรูปนิ่ง"""
+    _stop_capture(lab_id, cam_id)
+    return jsonify({"ok": True})
+
+
 # ✅ โหลดข้อมูลเดิมเมื่อ server เริ่ม
 load_stats()
 
@@ -368,4 +509,4 @@ def static_files(path):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, threaded=True)
